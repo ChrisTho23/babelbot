@@ -1,6 +1,11 @@
 # wa-tfm
 WhatsApp - Text for Me
 
+## System Architecture
+
+![Screenshot 2025-04-06 at 3 58 42 PM](https://github.com/user-attachments/assets/89737a79-c90c-43ba-9c08-05a2d8ee8b46)
+
+
 ## Setup & Installation
 
 1. **Install Dependencies**
