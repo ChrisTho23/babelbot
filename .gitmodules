@@ -1,0 +1,3 @@
+[submodule "whatsapp-mcp"]
+	path = whatsapp-mcp
+	url = git@github.com:lharries/whatsapp-mcp.git
