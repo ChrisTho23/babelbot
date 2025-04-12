@@ -172,3 +172,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Ignore WhatsApp storage
+wa_tfm/whatsapp-mcp/whatsapp-bridge/store/*
