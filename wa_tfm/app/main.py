@@ -1,25 +1,36 @@
-from fastapi import FastAPI
-from .routers import webhook_router, root_router
-from ..client import MCPClient
+import os
 from contextlib import asynccontextmanager
+
 import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI
+
+from .routers import root_router, webhook_router
+from .whatsapp import WhatsAppClient
+from .db import DBClient
+
+load_dotenv()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize the client on startup
-    client = await MCPClient.get_instance()
-    await client.connect_to_server("wa_tfm/whatsapp-mcp/whatsapp-mcp-server/main.py")
-    
+    db = await DBClient.initialize(
+        url=os.getenv("SUPABASE_URL"), key=os.getenv("SUPABASE_KEY")
+    )
+    client = await WhatsAppClient.get_instance(db)
+    await client.connect_to_server()
+
     yield
-    
+
     # Cleanup on shutdown
     await client.cleanup()
+
 
 app = FastAPI(
     title="WhatsApp Message Handler",
     description="API for handling WhatsApp messages and webhooks",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 app.include_router(webhook_router)

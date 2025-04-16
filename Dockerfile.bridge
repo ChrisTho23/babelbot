@@ -1,0 +1,48 @@
+# Use golang 1.24 image for building
+FROM golang:1.24-alpine AS builder
+
+# Install required build dependencies
+RUN apk add --no-cache gcc musl-dev
+
+# Set working directory
+WORKDIR /build
+
+# Copy the entire project (needed for go.mod and relative imports)
+COPY . /build/
+
+# Change to the bridge directory
+WORKDIR /build/wa_tfm/whatsapp-bridge
+
+# Build the application
+RUN CGO_ENABLED=1 go build -o main .
+
+# Create a smaller runtime image
+FROM alpine:3.21
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates
+
+# Create non-root user for security
+RUN addgroup -S wa && adduser -S wa -G wa
+
+# Create directories
+RUN mkdir -p /app/store
+WORKDIR /app
+
+# Copy the binary from builder
+COPY --from=builder /build/wa_tfm/whatsapp-bridge/main /usr/local/bin/wa-bridge
+
+# Copy the .env file from the project root
+COPY .env /app/.env
+
+# Set ownership
+RUN chown -R wa:wa /app
+
+# Switch to non-root user
+USER wa
+
+# Expose the port
+EXPOSE 8080
+
+# Command to run the application
+CMD ["/usr/local/bin/wa-bridge"]

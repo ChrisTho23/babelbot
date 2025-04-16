@@ -4,27 +4,30 @@ from contextlib import AsyncExitStack
 from typing import ClassVar, Optional
 
 from anthropic import Anthropic
+from supabase import Client
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from openai import AsyncOpenAI
 
-from ..app.routers.webhook.models import WhatsAppMessage
+from ..routers.webhook.models import WhatsAppMessage
 
 load_dotenv()
 
-class MCPClient:
-    _instance: ClassVar[Optional['MCPClient']] = None
+
+class WhatsAppClient:
+    _instance: ClassVar[Optional["WhatsAppClient"]] = None
     _initialized: bool = False
     _initialization_lock = asyncio.Lock()
 
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, db: Client):
         if not self._initialized:
+            self.db = db
             self.session: Optional[ClientSession] = None
             self.exit_stack = AsyncExitStack()
             self.anthropic = Anthropic()
@@ -72,34 +75,37 @@ class MCPClient:
             """
 
     @classmethod
-    async def get_instance(cls) -> 'MCPClient':
+    async def get_instance(cls, db: Client) -> "WhatsAppClient":
         if cls._instance is None:
             async with cls._initialization_lock:
                 if cls._instance is None:
-                    cls._instance = cls()
+                    cls._instance = cls(db)
         return cls._instance
 
-    async def connect_to_server(self, server_script_path: str):
+    async def connect_to_server(self):
         """Connect to an MCP server
 
         Args:
             server_script_path: Path to the server script (.py or .js)
         """
-        is_python = server_script_path.endswith('.py')
-        is_js = server_script_path.endswith('.js')
-        if not (is_python or is_js):
-            raise ValueError("Server script must be a .py or .js file")
+        from .whatsapp_mcp_server import WhatsAppMCPServer
 
-        command = "python" if is_python else "node"
-        server_params = StdioServerParameters(
-            command=command,
-            args=[server_script_path],
-            env=None
+        server = WhatsAppMCPServer(self.db)
+
+        # Create transport using the server's mcp instance
+        stdio_transport = await self.exit_stack.enter_async_context(
+            stdio_client(
+                StdioServerParameters(
+                    server=server.mcp,
+                    env={"SUPABASE_URL": self.db.url, "SUPABASE_KEY": self.db.key},
+                )
+            )
         )
 
-        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
         self.stdio, self.write = stdio_transport
-        self.session = await self.exit_stack.enter_async_context(ClientSession(self.stdio, self.write))
+        self.session = await self.exit_stack.enter_async_context(
+            ClientSession(self.stdio, self.write)
+        )
 
         await self.session.initialize()
 
@@ -113,9 +119,7 @@ class MCPClient:
         try:
             with open(audio_path, "rb") as audio_file:
                 transcript = await self.openai.audio.transcriptions.create(
-                    model="gpt-4o-transcribe",
-                    file=audio_file,
-                    response_format="text"
+                    model="gpt-4o-transcribe", file=audio_file, response_format="text"
                 )
                 return transcript
         except Exception as e:
@@ -127,20 +131,23 @@ class MCPClient:
         if message.media_type:
             if message.media_type == "audio":
                 try:
-                    download_result = await self.session.call_tool("download_media", {
-                        "message_id": message.message_id,
-                        "chat_jid": message.chat_jid
-                    })
-                    
+                    download_result = await self.session.call_tool(
+                        "download_media",
+                        {
+                            "message_id": message.message_id,
+                            "chat_jid": message.chat_jid,
+                        },
+                    )
+
                     if download_result and download_result.content:
                         # Parse the JSON string from the text content
                         result_json = json.loads(download_result.content[0].text)
                         print("Parsed result:", result_json)
-                        
+
                         if result_json.get("success"):
                             audio_path = result_json.get("file_path")
                             print(f"Audio downloaded to: {audio_path}")
-                            
+
                             # Transcribe the audio
                             transcript = await self.transcribe_audio(audio_path)
                             print(f"Transcription: {transcript}")
@@ -152,29 +159,26 @@ class MCPClient:
                         transcript = "[Failed to download audio message]"
                 except Exception as e:
                     print(f"Error processing audio: {str(e)}")
-                    transcript = "[Failed to download audio message]" 
+                    transcript = "[Failed to download audio message]"
                 message.content = transcript
             else:
-                message.content = f"User provided not supported media type {message.media_type}!"
+                message.content = (
+                    f"User provided not supported media type {message.media_type}!"
+                )
 
-        query = {
-            "sender": message.sender,
-            "content": message.content
-        }
+        query = {"sender": message.sender, "content": message.content}
 
-        messages = [
-            {
-                "role": "user",
-                "content": json.dumps(query)
-            }
-        ]
+        messages = [{"role": "user", "content": json.dumps(query)}]
 
         response = await self.session.list_tools()
-        available_tools = [{
-            "name": tool.name,
-            "description": tool.description,
-            "input_schema": tool.inputSchema
-        } for tool in response.tools]
+        available_tools = [
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "input_schema": tool.inputSchema,
+            }
+            for tool in response.tools
+        ]
 
         # Initial Claude API call
         response = self.anthropic.messages.create(
@@ -182,7 +186,7 @@ class MCPClient:
             system=self.system_prompt,
             max_tokens=1000,
             messages=messages,
-            tools=available_tools
+            tools=available_tools,
         )
 
         # Process response and handle tool calls
@@ -190,10 +194,10 @@ class MCPClient:
 
         assistant_message_content = []
         for content in response.content:
-            if content.type == 'text':
+            if content.type == "text":
                 final_text.append(content.text)
                 assistant_message_content.append(content)
-            elif content.type == 'tool_use':
+            elif content.type == "tool_use":
                 tool_name = content.name
                 tool_args = content.input
 
@@ -202,33 +206,34 @@ class MCPClient:
                 final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
 
                 assistant_message_content.append(content)
-                messages.append({
-                    "role": "assistant",
-                    "content": assistant_message_content
-                })
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": content.id,
-                            "content": result.content
-                        }
-                    ]
-                })
+                messages.append(
+                    {"role": "assistant", "content": assistant_message_content}
+                )
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": content.id,
+                                "content": result.content,
+                            }
+                        ],
+                    }
+                )
 
                 # Get next response from Claude
                 response = self.anthropic.messages.create(
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=1000,
                     messages=messages,
-                    tools=available_tools
+                    tools=available_tools,
                 )
 
                 final_text.append(response.content[0].text)
 
         return "\n".join(final_text)
-    
+
     async def chat_loop(self):
         """Run an interactive chat loop"""
         print("\nMCP Client Started!")
@@ -238,7 +243,7 @@ class MCPClient:
             try:
                 query = input("\nQuery: ").strip()
 
-                if query.lower() == 'quit':
+                if query.lower() == "quit":
                     break
 
                 response = await self.process_query(query)

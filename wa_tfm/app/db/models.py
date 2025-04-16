@@ -1,0 +1,39 @@
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional, List
+
+@dataclass
+class Message:
+    timestamp: datetime
+    sender: str
+    content: str
+    is_from_me: bool
+    chat_jid: str
+    id: str
+    chat_name: Optional[str] = None
+    media_type: Optional[str] = None
+
+@dataclass
+class Chat:
+    jid: str
+    name: Optional[str]
+    last_message_time: Optional[datetime]
+    last_message: Optional[str] = None
+    last_sender: Optional[str] = None
+    last_is_from_me: Optional[bool] = None
+
+    @property
+    def is_group(self) -> bool:
+        return self.jid.endswith("@g.us")
+
+@dataclass
+class Contact:
+    phone_number: str
+    name: Optional[str]
+    jid: str
+
+@dataclass
+class MessageContext:
+    message: Message
+    before: List[Message]
+    after: List[Message]

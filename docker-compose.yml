@@ -1,0 +1,52 @@
+services:
+  api:
+    image: fastapi-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - WEBHOOK_URL=http://api:8000/webhook
+    depends_on:
+      - mcp
+    networks:
+      - wa_network
+    restart: unless-stopped
+    healthcheck:
+      test: CMD curl -f http://localhost:8000/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  mcp:
+    image: mcp-server-client:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    ports:
+      - "8080:8080"
+    environment:
+      - WEBHOOK_URL=${WEBHOOK_URL}
+    volumes:
+      - mcp_data:/app/store
+    networks:
+      - wa_network
+    restart: unless-stopped
+    healthcheck:
+      test: CMD nc -z localhost 8080
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+networks:
+  wa_network:
+    driver: bridge
+
+volumes:
+  mcp_data:
+    driver: local

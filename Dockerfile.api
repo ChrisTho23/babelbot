@@ -1,0 +1,34 @@
+# Use Python 3.11 with uv pre-installed
+FROM python:3.11-slim-bookworm
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Set working directory
+WORKDIR /app
+
+# Create non-root user
+RUN groupadd -r app && useradd -r -g app app
+
+# Copy dependency manifest early for layer caching
+COPY pyproject.toml .
+COPY uv.lock .
+
+# Install dependencies with uv
+RUN uv pip install -e . --system --no-cache-dir
+
+# Copy the full project source
+COPY . .
+
+# Fix file permissions
+RUN chown -R app:app /app
+
+# Change ownership to app user
+RUN chown -R app:app /app
+
+# Switch to app user
+USER app
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Run FastAPI app using module syntax
+CMD ["uvicorn", "wa_tfm.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
