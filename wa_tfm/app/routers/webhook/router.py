@@ -18,9 +18,6 @@ async def webhook_handler(
     client: Annotated[MCPClient, Depends(get_client)]
 ):
     try:
-        # Here you can process the message as needed
-        # For example, log it, store it, or trigger other actions
-        
         print(f"Received message:")
         print(f"From: {message.sender}")
         print(f"Content: {message.content}")
@@ -39,6 +36,9 @@ async def webhook_handler(
             message="Message processed successfully"
         )
     except Exception as e:
+        import traceback
+        print(f"Webhook error: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Error processing message: {str(e)}"
