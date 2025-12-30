@@ -1,5 +1,5 @@
-# wa-tfm
-WhatsApp - Text for Me
+# BabelBot
+Simple AI agent that connects and translates text and audio into different languages in WhatsApp. Built via Luke Harries's [WhatsApp MCP server](https://github.com/lharries/whatsapp-mcp).
 
 ## System Architecture
 
