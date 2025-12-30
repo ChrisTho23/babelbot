@@ -5,7 +5,7 @@ You can find BabelBot's WhatsApp number [here](https://hey-eve-website.vercel.ap
 
 ## Tutorial
 
-
+Find a video where I explain the idea behind the project, its architecture, and show a few examplary applications [here]([https://drive.google.com/drive/u/1/folders/183KZosY9G-Xq4pR2IHoohddU2Pbo4it_?dmr=1&ec=wgc-drive-globalnav-goto)
 
 ## System Architecture
 
