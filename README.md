@@ -39,7 +39,7 @@ Find a video where I explain the idea behind the project, its architecture, and 
 3. **Start the WhatsApp Bridge**
    ```bash
    # Navigate to the bridge directory
-   cd wa_tfm/whatsapp-mcp/whatsapp-bridge
+   cd babelbot/whatsapp-mcp/whatsapp-bridge
 
    # Run the bridge
    go run main.go
@@ -51,7 +51,7 @@ Find a video where I explain the idea behind the project, its architecture, and 
 4. **Start the FastAPI Application**
    ```bash
    # From the root directory
-   python -m wa_tfm.app.main
+   python -m babelbot.app.main
    ```
    - The API server will start on http://localhost:8000
    - API documentation available at http://localhost:8000/docs
