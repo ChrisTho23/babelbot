@@ -1,7 +1,7 @@
 # BabelBot
 Simple AI agent that connects and translates text and audio into different languages in WhatsApp. Built via Luke Harries's [WhatsApp MCP server](https://github.com/lharries/whatsapp-mcp).
 
-Try it yourself now, by clicking [here](https://hey-eve-website.vercel.app/)
+You can find BabelBot's WhatsApp number [here](https://hey-eve-website.vercel.app/)!
 
 ## System Architecture
 
