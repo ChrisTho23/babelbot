@@ -48,26 +48,43 @@ class MCPClient:
             •⁠  ⁠Messages must be native-sounding and context-aware.
             •⁠  ⁠Default to concise and clear communication suitable for WhatsApp.
             •⁠  ⁠Assume a texting format: contractions and informal punctuation are okay when contextually appropriate.
-            •⁠  ⁠Always match the cultural tone and professionalism level expected in the recipient’s language and relationship.
+            •⁠  ⁠Always match the cultural tone and professionalism level expected in the recipient's language and relationship.
 
             LANGUAGE CAPABILITIES:
             You can understand and respond in multiple languages (including Spanish, Portuguese, French, etc.) and rewrite them into native-quality English, or vice versa, depending on user instruction or context clues.
 
+            IMPORTANT - RECIPIENT HANDLING:
+            •⁠  ⁠When responding to the user, ALWAYS use the 'chat_jid' field as the recipient (e.g., "1234567890@lid" or "1234567890@s.whatsapp.net").
+            •⁠  ⁠Do NOT strip the @lid or @s.whatsapp.net suffix - use the full chat_jid exactly as provided.
+            •⁠  ⁠The chat_jid is the correct identifier for sending messages back to the user.
+
+            VOICE MESSAGE GUIDELINES:
+            •⁠  ⁠By default, ALWAYS use 'send_message' to send TEXT responses.
+            •⁠  ⁠ONLY use 'send_voice_message' when the user EXPLICITLY requests a voice message, audio response, or says something like:
+                - "send as voice", "als Sprachnachricht", "voice message", "Sprachnachricht", "audio", "speak this", "say this out loud"
+                - "antworte mir mit einer Sprachnachricht", "schick mir das als Audio"
+            •⁠  ⁠When using send_voice_message, you can choose a voice: alloy, echo, fable, onyx, nova, or shimmer.
+            •⁠  ⁠For voice messages, keep the text natural and conversational - it will be spoken aloud.
+
             Here are three examples:
 
             Example 1 (Turkish to German):  
-            User: {"sender": "+1234567890", "content": "Abla, öğretmenime yazmak istiyorum. Derse geç kaldım ama yoldayım."}  
-            send_message: {"recipient": "1234567890", "message": "Hallo Frau Schneider, ich wollte nur kurz Bescheid geben, dass ich ein paar Minuten später komme – bin schon unterwegs."}
+            User: {"sender": "1234567890", "chat_jid": "1234567890@s.whatsapp.net", "content": "Abla, öğretmenime yazmak istiyorum. Derse geç kaldım ama yoldayım."}  
+            send_message: {"recipient": "1234567890@s.whatsapp.net", "message": "Hallo Frau Schneider, ich wollte nur kurz Bescheid geben, dass ich ein paar Minuten später komme – bin schon unterwegs."}
 
-            Example 2 (Arabic to German):  
-            User: {"sender": "+1234567890", "content": "بدي أكتب لبنت خالتي شكراً إنها ساعدتني مع الشغل."}
-            send_message: {"recipient": "1234567890", "message": "Hey, danke dir nochmal für deine Hilfe mit der Arbeit gestern – war echt mega lieb von dir!"}
+            Example 2 (Arabic to German with LID):  
+            User: {"sender": "9876543210", "chat_jid": "9876543210@lid", "content": "بدي أكتب لبنت خالتي شكراً إنها ساعدتني مع الشغل."}
+            send_message: {"recipient": "9876543210@lid", "message": "Hey, danke dir nochmal für deine Hilfe mit der Arbeit gestern – war echt mega lieb von dir!"}
 
             Example 3 (German to English):  
-            User: {"sender": "+1234567890", "content": "Ich will meinem Chef schreiben, dass ich Homeoffice mache, weil der Handwerker kommt."}
-            send_message: {"recipient": "1234567890", "message": "Morning! Just a heads-up – I’ll be working from home today, got someone coming over to fix something."}
+            User: {"sender": "5555555555", "chat_jid": "5555555555@s.whatsapp.net", "content": "Ich will meinem Chef schreiben, dass ich Homeoffice mache, weil der Handwerker kommt."}
+            send_message: {"recipient": "5555555555@s.whatsapp.net", "message": "Morning! Just a heads-up – I'll be working from home today, got someone coming over to fix something."}
 
-            IN ANY CASE USE THE 'send_message' TOOL TO COMMUNICATE YOUR ANSWER TO THE USER, OTHERWISE HE WILL NOT SEE YOUR RESPONSE.
+            Example 4 (Voice message request):  
+            User: {"sender": "1234567890", "chat_jid": "1234567890@lid", "content": "Schreib meinem Chef dass ich krank bin, schick es als Sprachnachricht"}
+            send_voice_message: {"recipient": "1234567890@lid", "text": "Hey Chef, wollte kurz Bescheid sagen dass ich heute leider krank bin und nicht kommen kann. Melde mich sobald es mir besser geht.", "voice": "onyx"}
+
+            IN ANY CASE USE THE 'send_message' OR 'send_voice_message' TOOL TO COMMUNICATE YOUR ANSWER TO THE USER, OTHERWISE HE WILL NOT SEE YOUR RESPONSE.
             Do not include any meta-commentary about using tools or sending messages - just provide the response content.
             """
 
@@ -159,6 +176,7 @@ class MCPClient:
 
         query = {
             "sender": message.sender,
+            "chat_jid": message.chat_jid,
             "content": message.content
         }
 
@@ -178,7 +196,7 @@ class MCPClient:
 
         # Initial Claude API call
         response = self.anthropic.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-20250514",
             system=self.system_prompt,
             max_tokens=1000,
             messages=messages,
@@ -219,7 +237,7 @@ class MCPClient:
 
                 # Get next response from Claude
                 response = self.anthropic.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model="claude-sonnet-4-20250514",
                     max_tokens=1000,
                     messages=messages,
                     tools=available_tools
